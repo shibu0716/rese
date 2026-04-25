@@ -8,28 +8,6 @@ PlaySim Arena is a **virtual coin-only** sports trading and mini-games web platf
 - **Backend:** Node.js, Express, MongoDB (Mongoose), Socket.io, JWT, bcrypt
 - **Security:** Rate limiting, auth middleware, input validation, CORS
 
-## Project Structure
-
-```
-playsim-arena/
-├─ client/
-│  ├─ src/
-│  │  ├─ app/                # Pages (dashboard, auth, games, wallet, match detail)
-│  │  ├─ components/
-│  │  ├─ contexts/
-│  │  └─ lib/                # Axios + Socket client
-├─ server/
-│  ├─ src/
-│  │  ├─ config/
-│  │  ├─ controllers/
-│  │  ├─ middleware/
-│  │  ├─ models/
-│  │  ├─ routes/
-│  │  ├─ services/
-│  │  └─ sockets/
-└─ README.md
-```
-
 ## Features
 
 ### User System
@@ -40,19 +18,28 @@ playsim-arena/
 
 ### Sports Trading Simulation
 - Live match cards
-- Odds update every 3 seconds over Socket.io
+- Owner-controlled Socket.io odds update rate
 - Place virtual predictions
 - Auto settlement engine with randomized results
 - Bet history and wallet updates
 
 ### Mini Games
-- Coin Flip (2x)
-- Dice (5x)
-- Crash simulation with cash-out multiplier
+- Coin Flip with owner-controlled payout rate
+- Dice with owner-controlled payout rate
+- Crash simulation with owner-controlled max multiplier
 
-### Wallet
-- Unified balance across all modules
-- Transaction logs for all wins/losses
+### Owner Panel
+- `/owner` dashboard for platform owners
+- Live score, active users, open bets, coin-in/coin-out, and wallet totals
+- Controls for game rates, stake limits, API request rate, socket update timing, target concurrent users, score weights, and maintenance mode
+- Owner-only API routes under `/api/owner`
+
+### Scaling and Safety
+- Atomic wallet balance updates prevent concurrent overspending
+- MongoDB indexes on users, bets, matches, and transactions
+- Tunable MongoDB connection pool for live traffic
+- Dynamic API rate limiting and bounded request body size
+- Optimized bulk odds updates for many connected Socket.io clients
 
 ## API Endpoints
 
@@ -65,6 +52,8 @@ playsim-arena/
 - `POST /api/game/coinflip`
 - `POST /api/game/dice`
 - `POST /api/game/crash`
+- `GET /api/owner/panel` owner only
+- `PUT /api/owner/settings` owner only
 
 ## Local Setup
 
@@ -89,12 +78,18 @@ Set:
 - `CLIENT_URL`
 - `NEXT_PUBLIC_API_URL`
 - `NEXT_PUBLIC_SOCKET_URL`
+- `OWNER_SETUP_CODE` for the first owner account
+- `MONGO_MAX_POOL_SIZE=100` or higher for larger deployments
 
-### 3) Run MongoDB locally
+### 3) Create the owner account
 
-Ensure MongoDB is running on your machine (or use a hosted MongoDB URI).
+Register once with `ownerSetupCode` matching `OWNER_SETUP_CODE`. The first matching account becomes `owner` and can access `/owner`.
 
-### 4) Run development servers
+### 4) Run MongoDB locally
+
+Ensure MongoDB is running on your machine or use a hosted MongoDB URI.
+
+### 5) Run development servers
 
 ```bash
 npm run dev
@@ -109,7 +104,7 @@ npm run dev
 - CORS restricted via `CLIENT_URL`
 - JWT-protected private routes
 - Input guards prevent negative/invalid staking
-- Basic API rate limiting enabled
+- For 1000 live users, run behind a process manager, use a hosted MongoDB cluster, set `MONGO_MAX_POOL_SIZE`, and load test with your expected traffic mix before launch
 
 ## Important Compliance
 
