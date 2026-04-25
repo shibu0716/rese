@@ -16,7 +16,7 @@ export default function LoginPage() {
     try {
       const { data } = await api.post('/api/auth/login', form);
       login(data.token);
-      router.push('/wallet');
+      router.push(data.user?.role === 'owner' ? '/owner' : '/wallet');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     }
