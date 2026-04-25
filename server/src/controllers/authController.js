@@ -3,10 +3,30 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validateRequired } from '../middleware/validateRequest.js';
 
-const signToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const signToken = (user) => jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+const toAuthUser = (user) => ({
+  id: user._id,
+  username: user.username,
+  balance: user.balance,
+  role: user.role
+});
+
+const resolveRole = async ({ username, ownerSetupCode }) => {
+  const ownerExists = await User.exists({ role: 'owner' });
+  const validSetupCode = process.env.OWNER_SETUP_CODE && ownerSetupCode === process.env.OWNER_SETUP_CODE;
+  const ownerUsernames = (process.env.OWNER_USERNAMES || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!ownerExists && validSetupCode) return 'owner';
+  if (ownerUsernames.includes(username.toLowerCase())) return 'owner';
+  return 'player';
+};
 
 export const register = async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, ownerSetupCode } = req.body;
   if (!validateRequired(['username', 'password'], req.body)) {
     return res.status(400).json({ message: 'username and password are required' });
   }
@@ -16,8 +36,9 @@ export const register = async (req, res) => {
   if (existing) return res.status(409).json({ message: 'Username already exists' });
 
   const hashed = await bcrypt.hash(password, 10);
-  const user = await User.create({ username, password: hashed });
-  return res.status(201).json({ token: signToken(user._id), user: { id: user._id, username: user.username, balance: user.balance } });
+  const role = await resolveRole({ username, ownerSetupCode });
+  const user = await User.create({ username, password: hashed, role });
+  return res.status(201).json({ token: signToken(user), user: toAuthUser(user) });
 };
 
 export const login = async (req, res) => {
@@ -32,5 +53,5 @@ export const login = async (req, res) => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ message: 'Invalid credentials' });
 
-  return res.json({ token: signToken(user._id), user: { id: user._id, username: user.username, balance: user.balance } });
+  return res.json({ token: signToken(user), user: toAuthUser(user) });
 };
