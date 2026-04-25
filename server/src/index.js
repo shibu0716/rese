@@ -11,26 +11,36 @@ import userRoutes from './routes/userRoutes.js';
 import matchRoutes from './routes/matchRoutes.js';
 import betRoutes from './routes/betRoutes.js';
 import gameRoutes from './routes/gameRoutes.js';
+import ownerRoutes from './routes/ownerRoutes.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 import { seedMatchesIfEmpty } from './services/matchService.js';
 import { setupSimulationEngine } from './sockets/simulationSocket.js';
 
 const app = express();
 const server = http.createServer(app);
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: allowedOrigins,
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 1e6,
+  pingTimeout: 20000,
+  pingInterval: 25000
 });
 
-app.use(cors({ origin: process.env.CLIENT_URL }));
-app.use(express.json());
+app.set('trust proxy', 1);
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json({ limit: '32kb' }));
 app.use(
   '/api',
   rateLimit({
     windowMs: 60 * 1000,
-    max: 120,
+    max: Number(process.env.API_RATE_LIMIT_PER_MINUTE || 600),
     standardHeaders: true,
     legacyHeaders: false
   })
@@ -42,6 +52,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/bet', betRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/owner', ownerRoutes);
 app.use(errorMiddleware);
 
 io.on('connection', (socket) => {
