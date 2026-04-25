@@ -17,6 +17,7 @@ export default function RootLayout({ children }) {
               <Link href='/' className='font-bold text-accent'>PlaySim Arena</Link>
               <Link href='/games'>Games</Link>
               <Link href='/wallet'>Wallet</Link>
+              <Link href='/owner'>Owner</Link>
               <Link href='/auth/login' className='ml-auto'>Login</Link>
               <Link href='/auth/register'>Register</Link>
             </nav>
