@@ -1,20 +1,28 @@
 import Match from '../models/Match.js';
 import Bet from '../models/Bet.js';
 import { validateAmount, validateRequired } from '../middleware/validateRequest.js';
+import { validateStakeAgainstConfig } from '../services/gameService.js';
 import { adjustBalance } from '../services/walletService.js';
 
 export const placeBet = async (req, res) => {
-  const { matchId, team, amount } = req.body;
-  if (!validateRequired(['matchId', 'team', 'amount'], req.body)) return res.status(400).json({ message: 'Missing fields' });
-  if (!['teamA', 'teamB'].includes(team)) return res.status(400).json({ message: 'Invalid team' });
-  if (!validateAmount(amount)) return res.status(400).json({ message: 'Invalid amount' });
+  try {
+    const { matchId, team, amount } = req.body;
+    if (!validateRequired(['matchId', 'team', 'amount'], req.body)) return res.status(400).json({ message: 'Missing fields' });
+    if (!['teamA', 'teamB'].includes(team)) return res.status(400).json({ message: 'Invalid team' });
+    if (!validateAmount(amount)) return res.status(400).json({ message: 'Invalid amount' });
 
-  const match = await Match.findById(matchId);
-  if (!match || match.status !== 'live') return res.status(400).json({ message: 'Match not live' });
+    const stakeCheck = await validateStakeAgainstConfig(Number(amount));
+    if (!stakeCheck.ok) return res.status(400).json({ message: stakeCheck.message });
 
-  const odds = team === 'teamA' ? match.oddsA : match.oddsB;
-  await adjustBalance({ userId: req.user.id, delta: -Number(amount), type: 'bet_place', metadata: { matchId, team, odds } });
+    const match = await Match.findById(matchId).lean();
+    if (!match || match.status !== 'live') return res.status(400).json({ message: 'Match not live' });
 
-  const bet = await Bet.create({ userId: req.user.id, matchId, team, amount: Number(amount), odds, status: 'open' });
-  res.status(201).json(bet);
+    const odds = team === 'teamA' ? match.oddsA : match.oddsB;
+    await adjustBalance({ userId: req.user.id, delta: -Number(amount), type: 'bet_place', metadata: { matchId, team, odds } });
+
+    const bet = await Bet.create({ userId: req.user.id, matchId, team, amount: Number(amount), odds, status: 'open' });
+    res.status(201).json(bet);
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Unable to place bet' });
+  }
 };
