@@ -21,8 +21,14 @@ export const validateStakeAgainstConfig = async (amount) => {
   return { ok: true, config };
 };
 
+const getPlayableConfig = async (amount) => {
+  const stakeCheck = await validateStakeAgainstConfig(amount);
+  if (!stakeCheck.ok) throw new Error(stakeCheck.message);
+  return stakeCheck.config;
+};
+
 export const playCoinFlip = async ({ userId, choice, amount }) => {
-  const { config } = await validateStakeAgainstConfig(amount);
+  const config = await getPlayableConfig(amount);
   await adjustBalance({ userId, delta: -amount, type: 'game_play', metadata: { game: 'coinflip', choice } });
   const result = Math.random() > 0.5 ? 'heads' : 'tails';
   const win = result === choice;
@@ -37,7 +43,7 @@ export const playCoinFlip = async ({ userId, choice, amount }) => {
 };
 
 export const playDice = async ({ userId, guess, amount }) => {
-  const { config } = await validateStakeAgainstConfig(amount);
+  const config = await getPlayableConfig(amount);
   await adjustBalance({ userId, delta: -amount, type: 'game_play', metadata: { game: 'dice', guess } });
   const result = Math.floor(Math.random() * 6) + 1;
   const win = result === guess;
@@ -52,7 +58,7 @@ export const playDice = async ({ userId, guess, amount }) => {
 };
 
 export const resolveCrash = async ({ userId, amount, cashOutMultiplier }) => {
-  const { config } = await validateStakeAgainstConfig(amount);
+  const config = await getPlayableConfig(amount);
   await adjustBalance({ userId, delta: -amount, type: 'game_play', metadata: { game: 'crash' } });
   const crashPoint = Number((1 + Math.random() * (config.gameRates.crashMaxMultiplier - 1)).toFixed(2));
   const won = cashOutMultiplier > 1 && cashOutMultiplier <= crashPoint;
