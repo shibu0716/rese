@@ -2,15 +2,21 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 
 export const adjustBalance = async ({ userId, delta, type, metadata = {} }) => {
-  const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
+  const numericDelta = Number(delta);
+  if (!Number.isFinite(numericDelta) || numericDelta === 0) throw new Error('Invalid balance change');
 
-  const newBalance = user.balance + delta;
-  if (newBalance < 0) throw new Error('Insufficient balance');
+  const balanceGuard = numericDelta < 0 ? { balance: { $gte: Math.abs(numericDelta) } } : {};
+  const user = await User.findOneAndUpdate(
+    { _id: userId, ...balanceGuard },
+    { $inc: { balance: numericDelta } },
+    { new: true, runValidators: true }
+  );
 
-  user.balance = newBalance;
-  await user.save();
+  if (!user) {
+    const exists = await User.exists({ _id: userId });
+    throw new Error(exists ? 'Insufficient balance' : 'User not found');
+  }
 
-  await Transaction.create({ userId, type, amount: delta, balanceAfter: newBalance, metadata });
+  await Transaction.create({ userId, type, amount: numericDelta, balanceAfter: user.balance, metadata });
   return user;
 };
