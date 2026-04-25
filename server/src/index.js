@@ -12,6 +12,7 @@ import matchRoutes from './routes/matchRoutes.js';
 import betRoutes from './routes/betRoutes.js';
 import gameRoutes from './routes/gameRoutes.js';
 import ownerRoutes from './routes/ownerRoutes.js';
+import PlatformConfig from './models/PlatformConfig.js';
 import { errorMiddleware } from './middleware/errorMiddleware.js';
 import { seedMatchesIfEmpty } from './services/matchService.js';
 import { setupSimulationEngine } from './sockets/simulationSocket.js';
@@ -22,6 +23,16 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+let cachedApiLimit = Number(process.env.API_RATE_LIMIT_PER_MINUTE || 600);
+let cachedApiLimitAt = 0;
+
+const getApiLimit = async () => {
+  if (Date.now() - cachedApiLimitAt < 5000) return cachedApiLimit;
+  const config = await PlatformConfig.getConfig();
+  cachedApiLimit = config.limits.apiRateLimitPerMinute;
+  cachedApiLimitAt = Date.now();
+  return cachedApiLimit;
+};
 
 const io = new Server(server, {
   cors: {
@@ -40,7 +51,7 @@ app.use(
   '/api',
   rateLimit({
     windowMs: 60 * 1000,
-    max: Number(process.env.API_RATE_LIMIT_PER_MINUTE || 600),
+    max: getApiLimit,
     standardHeaders: true,
     legacyHeaders: false
   })
