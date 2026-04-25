@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-background text-white;
+}
+
+.card {
+  @apply bg-card rounded-xl p-4 border border-white/10 shadow-lg;
+}
+
+.btn {
+  @apply bg-accent text-black font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition;
+}
