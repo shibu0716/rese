@@ -4,8 +4,9 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import { ownerMiddleware } from '../middleware/ownerMiddleware.js';
 
 const router = Router();
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
-router.get('/panel', authMiddleware, ownerMiddleware, getOwnerPanel);
-router.put('/settings', authMiddleware, ownerMiddleware, updateOwnerSettings);
+router.get('/panel', authMiddleware, asyncRoute(ownerMiddleware), asyncRoute(getOwnerPanel));
+router.put('/settings', authMiddleware, asyncRoute(ownerMiddleware), asyncRoute(updateOwnerSettings));
 
 export default router;
