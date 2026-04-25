@@ -20,13 +20,26 @@ export const seedMatchesIfEmpty = async () => {
 };
 
 export const updateLiveOdds = async () => {
-  const liveMatches = await Match.find({ status: 'live' });
-  for (const match of liveMatches) {
-    match.oddsA = randomOdds();
-    match.oddsB = randomOdds();
-    await match.save();
-  }
-  return liveMatches;
+  const liveMatches = await Match.find({ status: 'live' }).lean();
+  if (!liveMatches.length) return [];
+
+  const updated = liveMatches.map((match) => ({
+    ...match,
+    oddsA: randomOdds(),
+    oddsB: randomOdds()
+  }));
+
+  await Match.bulkWrite(
+    updated.map((match) => ({
+      updateOne: {
+        filter: { _id: match._id, status: 'live' },
+        update: { $set: { oddsA: match.oddsA, oddsB: match.oddsB } }
+      }
+    })),
+    { ordered: false }
+  );
+
+  return updated;
 };
 
 export const settleOneLiveMatch = async () => {
